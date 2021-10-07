@@ -36,7 +36,21 @@ options(scipen=999)
   
 ```
 
-# Exercise 01
+<!--- TODO: Hide warnings and unnecessary printing of data! -->
+# <span style="color:red">HIDE WARNINGS AND UNNECESSARY PRINTING OF DATA</span>
 
+## Links
 
+[GitHub Repo](https://github.com/EricKit/assignment04)
 
+[Data 1]()
+[Data 2]()
+[Data 3]()
+
+## Visualization 1
+
+## Visualization 2
+
+## Visualization 3
+
+## Visualization 4
