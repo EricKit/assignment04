@@ -33,7 +33,8 @@ options(scipen=999)
 ## Setup
 ```{r setup, message=FALSE, cache=FALSE}
   library(tidyverse)
-  
+  library(ncdf4)
+  library(raster) 
 ```
 
 <!--- TODO: Hide warnings and unnecessary printing of data! -->
@@ -43,11 +44,54 @@ options(scipen=999)
 
 [GitHub Repo](https://github.com/EricKit/assignment04)
 
-[Data 1]()
-[Data 2]()
-[Data 3]()
+The [Global Dataset of Historical Yield](https://doi.pangaea.de/10.1594/PANGAEA.909132) offers yield values for different crops from 1981-2016.
+
+The [NClimGrid](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00332) data from NOAA provides United States temperature and precipitation date geographically from 1895 to present.
+
+<span style="color:red">Update with actual query</span>
+[AQUASTAT](http://www.fao.org/aquastat/statistics/query/results.html) contains a webquery which can output a csv file. There are plenty of variables to select: of note precipitation, water use, and renewable water resources from 1958 to 2020.
 
 ## Visualization 1
+
+```{r dias}
+data_2015 <- nc_open("gdhy_v1/wheat/yield_2015.nc4")
+
+array <- ncvar_get(data_2015, "var")
+fillvalue <- ncatt_get(data_2015, "var", "_FillValue")
+
+array[array == fillvalue$value] <- NA
+
+lat_2015 <- ncvar_get(data_2015, "lat")
+lon_2015 <- ncvar_get(data_2015, "lon")
+
+r <- raster(t(array),
+  xmn = min(lon_2015), xmx = max(lon_2015),
+  ymn = min(lat_2015), ymx = max(lat_2015),
+  crs = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs+ towgs84=0,0,0")
+)
+
+r <- flip(r, direction = "y")
+plot(r)
+
+data_1982 <- nc_open("gdhy_v1/wheat/yield_1982.nc4")
+
+array <- ncvar_get(data_1982, "var")
+fillvalue <- ncatt_get(data_1982, "var", "_FillValue")
+
+array[array == fillvalue$value] <- NA
+
+lat_1982 <- ncvar_get(data_1982, "lat")
+lon_1982 <- ncvar_get(data_1982, "lon")
+
+r <- raster(t(array),
+  xmn = min(lon_1982), xmx = max(lon_1982),
+  ymn = min(lat_1982), ymx = max(lat_1982),
+  crs = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs+ towgs84=0,0,0")
+)
+
+r <- flip(r, direction = "y")
+plot(r)
+```
 
 ## Visualization 2
 
