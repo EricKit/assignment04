@@ -1,0 +1,42 @@
+---
+title: "Assignment 04 - Data Science for Public Policy"
+author: "Eric Kitaif - ek910"
+output: 
+  html_document
+urlcolor: blue
+---
+
+```{r include = FALSE}
+def.chunk.hook <- knitr::knit_hooks$get("chunk")
+knitr::opts_chunk$set(cache = TRUE)
+knitr::knit_hooks$set(
+  chunk = function(x, options) {
+    x <- def.chunk.hook(x, options)
+    ifelse(options$size != "normalsize", paste0("\n \\", options$size, "\n\n", x, "\n\n \\normalsize"), x)
+  }
+)
+# knitr::knit_hooks$set(inline = function(x) {
+#   prettyNum(round(x, 2), big.mark = ",")
+# })
+options(scipen=999)
+```
+
+
+\begin{center}
+\Huge{PPOL 670 | Assignment 04}
+
+\Huge{Data Visualization, Markdown, and Git}
+\end{center}
+
+\vspace{0.1in}
+
+## Setup
+```{r setup, message=FALSE, cache=FALSE}
+  library(tidyverse)
+  
+```
+
+# Exercise 01
+
+
+
