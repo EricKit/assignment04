@@ -125,7 +125,7 @@ tavg_data <- file %>%
 
 ```
 
-## Merge data and prepare datasets
+### Merge data and prepare datasets
 
 ```{r merge, cache=TRUE, message=FALSE}
 
@@ -212,7 +212,7 @@ temp_diff %>%
 
 ## Visualization 3
 
-The weighted average location for the production of wheat are shown for each year. The hypothesis to test was if the area where wheat is being grown is in fact moving. To attempt to answer this, this figure shows the center of mass of all the wheat production for each year. Each lat/lon pair is weighted based on the yield. From this graph, the center of mass does not appear to move North much, but surprisingly it does move East.
+The weighted average location for the production of wheat for each year are shown. The hypothesis to test was if the area where wheat is being grown is in fact moving. To attempt to answer this, this figure shows the center of mass of all the wheat production for each year. Each lat/lon pair is weighted based on the yield. From this graph, the center of mass does not appear to move North much, but surprisingly it does move East.
 
 ```{r vis_3, cache=TRUE, warning=FALSE}
   four_states = states %>% 
@@ -261,7 +261,7 @@ It appears that the center of mass may be moving North after the year 2003, whic
     ggplot(mapping = aes(x = year)) + 
     geom_point(mapping = aes(y = coord, color = type, shape = type), size=3) +
     geom_smooth(mapping = aes(y = coord, linetype = type, color = type)) +
-    geom_line(mapping = aes(y = coord, linetype = type, color = type), alpha = 0.3) +
+    geom_line(mapping = aes(y = coord, linetype = type, color = type), alpha = 0.2) +
     scale_y_continuous(
       "Latitude", 
       sec.axis = sec_axis(~ . * -2.38, name = "Longitude")
@@ -273,9 +273,9 @@ It appears that the center of mass may be moving North after the year 2003, whic
     theme(legend.title=element_blank())
 ```
 
-The next piece of data I would want to look at is if the lowest latitude and the highest latitude where wheat consistently grows has moved up or down, and compare that to the temperature graph that shows where it should grow. The center of mass may not be moving much because the bulk of the growth occurs in an environment that still meets the minimum or maximum temperature threshold to grow wheat. 
+The next piece of data I would want to look at is if the lowest latitudwhere wheat consistently grows has moved up or down, and compare that to the temperature graph that shows where it should grow. The center of mass may not be moving much because the bulk of the growth occurs in an environment that still meets the minimum or maximum temperature threshold to grow wheat. 
 
-Technological advancements, rather than temperature changes, may allow for more production in the geographic areas which had sufficient temperature from 1981 to 2015. These advancements, or various other reasons, may account for center of gravity shifts more than temperature. This is why I want to look at some threshold value of production in the North and South rather than a weighted center next.
+Technological advancements, rather than temperature changes, may allow for more production in the geographic areas which had sufficient temperatures from 1981 to 2015. These advancements, or various other reasons, may account for center of gravity shifts more than temperature. This is why I want to look at some threshold value of production in the North and South rather than a weighted center next.
 
 
 ```{r, inclue=FALSE, echo=FALSE}
