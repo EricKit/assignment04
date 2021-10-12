@@ -32,9 +32,12 @@ options(scipen=999)
 
 ## Setup
 ```{r setup, message=FALSE, cache=FALSE}
-  library(tidyverse)
-  library(ncdf4)
-  library(raster) 
+library(tigris)
+library(sf)
+library(tidyverse)
+# library(ncdf4)
+# library(raster)
+library(tidync)
 ```
 
 <!--- TODO: Hide warnings and unnecessary printing of data! -->
@@ -51,46 +54,196 @@ The [NClimGrid](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?i
 <span style="color:red">Update with actual query</span>
 [AQUASTAT](http://www.fao.org/aquastat/statistics/query/results.html) contains a webquery which can output a csv file. There are plenty of variables to select: of note precipitation, water use, and renewable water resources from 1958 to 2020.
 
+## Retrieve Data
+
+```{r read_data, cache=TRUE}
+file_list <- list.files("data/gdhy_v1/wheat_spring/", pattern="nc4")
+
+rm(wheat_data)
+
+for(file_name in file_list) {
+  path <- paste("data/gdhy_v1/wheat/", file_name, sep="")
+  file <- tidync(path)
+  year <- parse_number(file_name)
+  
+  new_data <- file %>%
+    
+    # Remove lats and lons that are not in the other data sets and convert from
+    # 0-360 to -180 to 180
+    hyper_filter(lat = lat >= 24.6 & lat <= 49.4,
+                 lon = lon >= (-125 %% 360) & lon <= (-67 %% 360)) %>% 
+    hyper_tibble() %>% 
+    mutate(lon = ((lon + 180) %% 360) - 180) %>% 
+    rename(yield = var) %>% 
+    add_column(year = year)
+  
+  if (exists("wheat_data")){
+    wheat_data <- bind_rows(wheat_data, new_data)
+  } else {
+    wheat_data <- new_data
+  }
+}
+
+# The commented code below creates a wider table with one row per location and
+# and a column for each year.
+
+# file_list <- list.files("data/gdhy_v1/wheat_spring/", pattern="nc4")
+# 
+# rm(wheat_data)
+# 
+# for(file_name in file_list) {
+#   path <- paste("data/gdhy_v1/wheat/", file_name, sep="")
+#   file <- tidync(path)
+#   year <- parse_number(file_name)
+#   
+#   new_data <- file %>%
+#     hyper_tibble() %>% 
+#     rename("{year}":= var)
+#   if (exists("wheat_data")){
+#     wheat_data <- left_join(wheat_data, new_data)
+#   } else {
+#     wheat_data <- new_data
+#   }
+# }
+
+path <- "data/noaa/nclimgrid_tavg.nc"
+file <- tidync(path)
+
+# Time is in monthly increments, but the units are days since 1800-01-01.
+# Here we pull the data for July from 1981 to 2016.
+
+tavg_data <- file %>%
+  hyper_filter(time = time >= 66291 & time <= 79106) %>%
+  hyper_tibble() %>%
+  filter(
+    
+    # Only include data that is near Wheat data
+    # Cannot filter non-continuous data, so I have to do it after making the tibble.
+    (lat - 0.25) %% 0.5 < 0.05,
+    (lon + 0.25) %% 0.5 < 0.05,
+    
+    # Finds only the July month
+    # The 365 * 4 - 45 accounts for leap years starting at 1981.
+    time %% 365 - (floor(time / (365 * 4)) - 45) >= 226 &
+      time %% 365 - (floor(time / (365 * 4)) - 45) <= 256
+  ) %>%
+  mutate(
+    lat = lat - (lat %% 0.25),
+    lon = lon - (lon %% 0.25),
+    year = 1800 + floor(time / 365)
+  ) %>%
+  select(-time)
+
+data <- left_join(tavg_data, wheat_data)
+
+data_sf = st_as_sf(data, coords=c("lon", "lat"))
+
+temp_1982 <- file %>%
+  hyper_filter(time = time >= 66656 & time <= 66686) %>%
+  hyper_tibble() %>% 
+  select(-time) %>% 
+  add_column(year = 1982)
+
+temp_2015 <- file %>%
+  hyper_filter(time = time >= 78709 & time <= 78739) %>%
+  hyper_tibble() %>% 
+  select(-time) %>% 
+  add_column(year = 2015)
+
+tavg_detailed_sf <- bind_rows(temp_1982, temp_2015) %>% 
+  st_as_sf(coords=c("lon", "lat"))
+
+
+states <- states(cb = TRUE, progress_bar = FALSE) %>% 
+  filter(STUSPS != "HI",
+         STUSPS != "AK", 
+         STUSPS != "VI",
+         STUSPS != "AS",
+         STUSPS != "MP",
+         STUSPS != "GU",
+         STUSPS != "PR")
+```
+
 ## Visualization 1
 
-```{r dias}
-data_2015 <- nc_open("gdhy_v1/wheat/yield_2015.nc4")
+```{r vis_1}
+tavg_detailed_sf %>% 
+  st_set_crs(value = 4326) %>%
+  ggplot() + 
+  geom_sf(aes(color = tavg)) + 
+  geom_sf(data = states, fill = NA) + 
+  facet_wrap(~ year, nrow = 2)
+```
 
-array <- ncvar_get(data_2015, "var")
-fillvalue <- ncatt_get(data_2015, "var", "_FillValue")
+## Visualization 2
 
-array[array == fillvalue$value] <- NA
+```{r}
+first_5 <- data %>% 
+  filter(year <= 1987) %>% 
+  group_by(lat, lon) %>%
+  summarize(first_5_avg = mean(tavg))
 
-lat_2015 <- ncvar_get(data_2015, "lat")
-lon_2015 <- ncvar_get(data_2015, "lon")
+last_5 <- data %>% 
+  filter(year >= 2011) %>% 
+  group_by(lat, lon) %>% 
+  summarize(last_5_avg = mean(tavg))
 
-r <- raster(t(array),
-  xmn = min(lon_2015), xmx = max(lon_2015),
-  ymn = min(lat_2015), ymx = max(lat_2015),
-  crs = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs+ towgs84=0,0,0")
-)
+temp_diff <- left_join(first_5, last_5, by = c("lat", "lon")) %>% 
+  mutate(diff = last_5_avg - first_5_avg)
 
-r <- flip(r, direction = "y")
-plot(r)
+temp_diff %>% 
+  st_as_sf(coords=c("lon", "lat")) %>% 
+  st_set_crs(value = 4326) %>%
+  ggplot() + 
+  geom_sf(aes(color = diff)) +
+  scale_color_gradient2(midpoint = 0, low = "blue", mid = "white", high = "red") +
+  geom_sf(data = states, fill = NA) + 
+  labs(
+      title = "Temperature Change",
+      subtitle = "Five year average around 1981 and 2016",
+      color="\u00B0C")
+```
 
-data_1982 <- nc_open("gdhy_v1/wheat/yield_1982.nc4")
 
-array <- ncvar_get(data_1982, "var")
-fillvalue <- ncatt_get(data_1982, "var", "_FillValue")
 
-array[array == fillvalue$value] <- NA
 
-lat_1982 <- ncvar_get(data_1982, "lat")
-lon_1982 <- ncvar_get(data_1982, "lon")
+# Below is how to do this with raster data if the need arises
 
-r <- raster(t(array),
-  xmn = min(lon_1982), xmx = max(lon_1982),
-  ymn = min(lat_1982), ymx = max(lat_1982),
-  crs = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs+ towgs84=0,0,0")
-)
-
-r <- flip(r, direction = "y")
-plot(r)
+# array <- ncvar_get(data_2015, "var")
+# fillvalue <- ncatt_get(data_2015, "var", "_FillValue")
+# 
+# array[array == fillvalue$value] <- NA
+# 
+# lat_2015 <- ncvar_get(data_2015, "lat")
+# lon_2015 <- ncvar_get(data_2015, "lon")
+# 
+# r <- raster(t(array),
+#   xmn = min(lon_2015), xmx = max(lon_2015),
+#   ymn = min(lat_2015), ymx = max(lat_2015),
+#   crs = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs+ towgs84=0,0,0")
+# )
+# 
+# r <- flip(r, direction = "y")
+# plot(r)
+# 
+# data_1982 <- nc_open("gdhy_v1/wheat/yield_1982.nc4")
+# 
+# array <- ncvar_get(data_1982, "var")
+# fillvalue <- ncatt_get(data_1982, "var", "_FillValue")
+# 
+# array[array == fillvalue$value] <- NA
+# 
+# lat_1982 <- ncvar_get(data_1982, "lat")
+# lon_1982 <- ncvar_get(data_1982, "lon")
+# 
+# r <- raster(t(array),
+#   xmn = min(lon_1982), xmx = max(lon_1982),
+#   ymn = min(lat_1982), ymx = max(lat_1982),
+#   crs = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs+ towgs84=0,0,0")
+# )
+# 
+# r <- flip(r, direction = "y")
+# plot(r)
 ```
 
 ## Visualization 2
