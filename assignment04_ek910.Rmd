@@ -62,7 +62,7 @@ file_list <- list.files("data/gdhy_v1/wheat_spring/", pattern="nc4")
 rm(wheat_data)
 
 for(file_name in file_list) {
-  path <- paste("data/gdhy_v1/wheat/", file_name, sep="")
+  path <- paste("data/gdhy_v1/wheat_spring/", file_name, sep="")
   file <- tidync(path)
   year <- parse_number(file_name)
   
@@ -83,28 +83,6 @@ for(file_name in file_list) {
     wheat_data <- new_data
   }
 }
-
-# The commented code below creates a wider table with one row per location and
-# and a column for each year.
-
-# file_list <- list.files("data/gdhy_v1/wheat_spring/", pattern="nc4")
-# 
-# rm(wheat_data)
-# 
-# for(file_name in file_list) {
-#   path <- paste("data/gdhy_v1/wheat/", file_name, sep="")
-#   file <- tidync(path)
-#   year <- parse_number(file_name)
-#   
-#   new_data <- file %>%
-#     hyper_tibble() %>% 
-#     rename("{year}":= var)
-#   if (exists("wheat_data")){
-#     wheat_data <- left_join(wheat_data, new_data)
-#   } else {
-#     wheat_data <- new_data
-#   }
-# }
 
 path <- "data/noaa/nclimgrid_tavg.nc"
 file <- tidync(path)
@@ -166,7 +144,7 @@ states <- states(cb = TRUE, progress_bar = FALSE) %>%
 
 ## Visualization 1
 
-```{r vis_1}
+```{r vis_1, cache=TRUE}
 tavg_detailed_sf %>% 
   st_set_crs(value = 4326) %>%
   ggplot() + 
@@ -177,7 +155,7 @@ tavg_detailed_sf %>%
 
 ## Visualization 2
 
-```{r}
+```{r, cache=TRUE}
 first_5 <- data %>% 
   filter(year <= 1987) %>% 
   group_by(lat, lon) %>%
@@ -204,9 +182,58 @@ temp_diff %>%
       color="\u00B0C")
 ```
 
+## Visualization 3
+
+```{r data}
+  four_states = states %>% 
+    filter(STUSPS == "IA"|
+           STUSPS == "MO"|
+           STUSPS == "KS" |
+           STUSPS == "NE"
+           )
+  data %>% 
+    filter(!is.na(yield), year != 1981) %>% 
+    group_by(year) %>% 
+    summarize(lat = weighted.mean(lat, w = yield, na.rm = TRUE), 
+              lon = weighted.mean(lon, w = yield, na.rm = TRUE)) %>% 
+    st_as_sf(coords=c("lon", "lat")) %>% 
+    st_set_crs(value = 4326) %>%
+    ggplot() + 
+    geom_sf(aes(color = year)) +
+    geom_sf(data = four_states, fill = NA) + 
+    scale_color_gradient(low = "black", high = "orange") +
+    xlim(96, 94) +
+    ylim(39.2, 40.3) +
+    labs( 
+        title = "Center of Wheat Yield",
+        subtitle = "Weighted average of centroid of wheat",
+        color="Year")
+```
+
+```{r}
+
+  data %>% 
+    filter(!is.na(yield), year != 1981) %>% 
+    group_by(year) %>% 
+    summarize(lat = weighted.mean(lat, w = yield, na.rm = TRUE), 
+              lon = weighted.mean(lon, w = yield, na.rm = TRUE)) %>% 
+    ggplot() + 
+    geom_point(mapping = aes(x = year, y = lat, color = "blue")) +
+    geom_smooth(mapping = aes(x = year, y = lat, color = "blue")) +
+    geom_point(mapping = aes(x = year, y = lon / -2.38, color = "orange")) +
+    geom_smooth(mapping = aes(x = year, y = lon / -2.38, color = "orange")) +
+    scale_y_continuous(
+      "Lat", 
+      sec.axis = sec_axis(~ . * -2.38, name = "Lon")
+    ) + 
+    labs( 
+        title = "Vertical progression",
+        subtitle = "Weighted average of centroid of wheat")
+
+```
 
 
-
+```{r}
 # Below is how to do this with raster data if the need arises
 
 # array <- ncvar_get(data_2015, "var")
@@ -244,6 +271,28 @@ temp_diff %>%
 # 
 # r <- flip(r, direction = "y")
 # plot(r)
+
+# The commented code below creates a wider table with one row per location and
+# and a column for each year
+
+# file_list <- list.files("data/gdhy_v1/wheat_spring/", pattern="nc4")
+# 
+# rm(wheat_data)
+# 
+# for(file_name in file_list) {
+#   path <- paste("data/gdhy_v1/wheat/", file_name, sep="")
+#   file <- tidync(path)
+#   year <- parse_number(file_name)
+#   
+#   new_data <- file %>%
+#     hyper_tibble() %>% 
+#     rename("{year}":= var)
+#   if (exists("wheat_data")){
+#     wheat_data <- left_join(wheat_data, new_data)
+#   } else {
+#     wheat_data <- new_data
+#   }
+# }
 ```
 
 ## Visualization 2
